@@ -8,40 +8,49 @@
 </head>
 <body>
   <div class="popup-wrapper">
-    <!-- Compact View (Always Visible) -->
-    <div class="compact-bar" id="compact-bar" title="Click to toggle 7-day details">
+    <!-- Ultra-Compact View (Always Visible) -->
+    <div class="compact-bar" id="compact-bar" title="Click to view full statistics">
       <div class="count-display">
         <span class="count-label">Count:</span>
         <span id="today-count" class="count-number">0</span>
       </div>
-      <button class="toggle-btn" id="toggle-btn" aria-label="Toggle details">
+      <button class="toggle-btn" id="toggle-btn" aria-label="Toggle full info">
         <svg id="chevron-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
           <polyline points="6 9 12 15 18 9"></polyline>
         </svg>
       </button>
     </div>
 
-    <!-- Expandable Detailed View (Revealed when clicked) -->
+    <!-- Full Information Panel (Revealed on click) -->
     <div class="details-panel hidden" id="details-panel">
       <div class="divider"></div>
       
-      <div class="section-title">Past 7 Days</div>
+      <!-- Today's Time Wasted Card -->
+      <div class="time-card">
+        <span class="time-label">Time Wasted Today</span>
+        <span id="today-time" class="time-value">0s</span>
+      </div>
+
+      <div class="section-title">Past 7 Days History</div>
       <div class="history-list" id="history-list">
         <!-- Rendered dynamically by popup.js -->
       </div>
 
-      <div class="summary-row">
-        <span>7-Day Total:</span>
-        <span id="week-total" class="bold-value">0</span>
+      <div class="summary-card">
+        <div class="summary-row">
+          <span>7-Day Reels:</span>
+          <span id="week-total-reels" class="bold-value">0</span>
+        </div>
+        <div class="summary-row">
+          <span>7-Day Time:</span>
+          <span id="week-total-time" class="bold-value">0m</span>
+        </div>
       </div>
 
       <div class="divider"></div>
 
-      <div class="footer-actions">
-        <span class="status-indicator">
-          <span class="status-dot"></span> Tracking Active
-        </span>
-        <button id="reset-btn" class="reset-btn" title="Reset today's count">Reset</button>
+      <div class="footer-info">
+        <span class="auto-reset-tag">🌙 Auto-resets daily at 12:00 AM</span>
       </div>
     </div>
   </div>

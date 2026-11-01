@@ -1,12 +1,13 @@
-/* src/popup/popup.css - Ultra-compact, modern design */
+/* src/popup/popup.css - Ultra-compact with expandable full statistics */
 :root {
   --bg-color: #121217;
-  --panel-bg: #1a1a24;
+  --panel-bg: #1c1c26;
+  --card-bg: #232330;
   --text-main: #f0f0f5;
-  --text-muted: #8b8b9e;
+  --text-muted: #8e8ea0;
   --accent-pink: #ff3366;
-  --accent-green: #00d26a;
-  --border-color: #2c2c3a;
+  --accent-amber: #ff9f1c;
+  --border-color: #2b2b3b;
 }
 
 * {
@@ -21,14 +22,13 @@ body {
   color: var(--text-main);
   margin: 0;
   padding: 0;
-  width: auto;
-  min-width: 130px;
-  max-width: 230px;
+  min-width: 120px;
+  max-width: 250px;
   user-select: none;
 }
 
 .popup-wrapper {
-  padding: 8px 10px;
+  padding: 7px 10px;
 }
 
 /* Compact single-row bar */
@@ -36,14 +36,14 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: 10px;
   cursor: pointer;
 }
 
 .count-display {
   display: flex;
   align-items: baseline;
-  gap: 4px;
+  gap: 5px;
 }
 
 .count-label {
@@ -64,12 +64,12 @@ body {
   border: none;
   color: var(--text-muted);
   cursor: pointer;
-  padding: 2px;
+  padding: 3px;
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: 4px;
-  transition: color 0.2s, transform 0.2s;
+  transition: color 0.15s, transform 0.2s;
 }
 
 .toggle-btn:hover {
@@ -81,7 +81,7 @@ body {
   transform: rotate(180deg);
 }
 
-/* Detailed expanded section */
+/* Full info details panel */
 .details-panel {
   margin-top: 6px;
   animation: fadeIn 0.18s ease-in-out;
@@ -94,7 +94,30 @@ body {
 .divider {
   height: 1px;
   background-color: var(--border-color);
-  margin: 6px 0;
+  margin: 7px 0;
+}
+
+/* Time Wasted Card */
+.time-card {
+  background-color: var(--panel-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 6px 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 7px;
+}
+
+.time-label {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.time-value {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--accent-amber);
 }
 
 .section-title {
@@ -110,42 +133,66 @@ body {
   flex-direction: column;
   gap: 3px;
   margin-bottom: 6px;
-  max-height: 120px;
+  max-height: 140px;
   overflow-y: auto;
 }
 
 .history-row {
   display: flex;
   justify-content: space-between;
+  align-items: center;
   font-size: 11px;
-  padding: 2px 4px;
-  border-radius: 3px;
+  padding: 3px 5px;
+  border-radius: 4px;
 }
 
 .history-row.today {
   background-color: rgba(255, 51, 102, 0.12);
-  color: var(--text-main);
   font-weight: 600;
 }
 
 .history-date {
   color: var(--text-muted);
+  width: 60px;
 }
 
 .history-row.today .history-date {
   color: var(--accent-pink);
 }
 
+.history-stats {
+  display: flex;
+  gap: 10px;
+}
+
 .history-count {
   font-weight: 600;
+  color: var(--text-main);
+  min-width: 25px;
+  text-align: right;
+}
+
+.history-time {
+  color: var(--accent-amber);
+  font-size: 10px;
+  min-width: 40px;
+  text-align: right;
+}
+
+.summary-card {
+  background-color: var(--panel-bg);
+  border-radius: 6px;
+  padding: 5px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 11px;
 }
 
 .summary-row {
   display: flex;
   justify-content: space-between;
-  font-size: 11px;
   color: var(--text-muted);
-  padding: 2px 4px;
 }
 
 .bold-value {
@@ -153,43 +200,16 @@ body {
   font-weight: 700;
 }
 
-.footer-actions {
+.footer-info {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
+  justify-content: center;
   padding-top: 2px;
 }
 
-.status-indicator {
-  display: flex;
-  align-items: center;
-  gap: 4px;
+.auto-reset-tag {
   font-size: 10px;
   color: var(--text-muted);
-}
-
-.status-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background-color: var(--accent-green);
-  box-shadow: 0 0 5px var(--accent-green);
-}
-
-.reset-btn {
-  background-color: transparent;
-  color: var(--text-muted);
-  border: 1px solid var(--border-color);
-  border-radius: 3px;
-  padding: 2px 6px;
-  font-size: 10px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.reset-btn:hover {
-  color: #ff5577;
-  border-color: #ff5577;
+  letter-spacing: 0.2px;
 }
 
 @keyframes fadeIn {

@@ -1,34 +1,32 @@
 /**
  * src/content/content.js
- * Content script running inside Instagram, YouTube, and Facebook.
+ * Injected script for Instagram, YouTube Shorts, and Facebook Reels.
  * 
- * Responsibilities:
- * 1. Monitor URL changes and DOM updates as the user scrolls through Reels/Shorts.
- * 2. Extract the unique video ID for the active platform.
- * 3. Filter out duplicate events (e.g. repeated DOM mutations on the same video).
- * 4. Pass unique candidate IDs to ReelStorage for persistent deduplication.
- * 
- * C++ Analogy:
- * Think of this as an event listener / sensor in an embedded system. It monitors
- * an input stream (DOM & URL), debounces noise, and signals the data layer.
+ * Features:
+ * 1. Counts every play of a reel (initial navigation, returning to it, and loop replays).
+ * 2. Tracks real-time active viewing duration ("time wasted").
+ * 3. Syncs seamlessly with ReelStorage.
  */
 
 (() => {
-  // Prevent duplicate script injection in the same frame
   if (window.__REEL_COUNTER_INJECTED__) return;
   window.__REEL_COUNTER_INJECTED__ = true;
 
   console.log('[Reel Counter] Content script attached to:', window.location.hostname);
 
-  // In-memory cache of the currently active video ID
-  // Prevents re-triggering while the user is simply watching the current video
-  let lastActiveId = null;
-  let lastCheckedUrl = '';
+  let currentPlatform = null;
+  let activeReelId = null;
+  let activeVideoEl = null;
+
+  // Time tracking accumulator (in seconds)
+  let unsavedSeconds = 0;
+
+  // Video loop tracking state
+  let lastVideoTime = 0;
+  let playCountedForCurrentCycle = false;
 
   /**
    * Identifies the current platform based on hostname.
-   * 
-   * @returns {'instagram' | 'youtube' | 'facebook' | null}
    */
   function detectPlatform() {
     const host = window.location.hostname;
@@ -38,90 +36,165 @@
     return null;
   }
 
+  currentPlatform = detectPlatform();
+  if (!currentPlatform) return;
+
   /**
    * Extracts the unique Reel or Short ID from the current URL.
-   * 
-   * Regex matching breakdown (C++ std::regex equivalent):
-   * - Instagram: /reels?\/([A-Za-z0-9_-]+)/
-   * - YouTube:   /shorts\/([A-Za-z0-9_-]+)/
-   * - Facebook:  /reel\/([0-9A-Za-z_-]+)/
-   * 
-   * @param {string} url - Current window.location.href
-   * @param {string} platform - The active platform
-   * @returns {string | null} Unique video ID or null if not currently on a reel
    */
-  function extractReelId(url, platform) {
+  function extractReelId(url) {
     if (!url) return null;
-
     let match = null;
 
-    if (platform === 'instagram') {
-      // Matches both https://www.instagram.com/reel/ID/ and /reels/ID/
+    if (currentPlatform === 'instagram') {
       match = url.match(/(?:reels?)\/([A-Za-z0-9_-]+)/i);
-    } else if (platform === 'youtube') {
-      // Matches https://www.youtube.com/shorts/ID
+    } else if (currentPlatform === 'youtube') {
       match = url.match(/\/shorts\/([A-Za-z0-9_-]+)/i);
-    } else if (platform === 'facebook') {
-      // Matches https://www.facebook.com/reel/ID
+    } else if (currentPlatform === 'facebook') {
       match = url.match(/\/reel\/([0-9A-Za-z_-]+)/i);
     }
 
-    // match[1] contains the first capture group (the ID)
     return match ? match[1] : null;
   }
 
   /**
-   * Main check routine.
-   * Called whenever a URL change or significant DOM mutation is detected.
+   * Flushes accumulated seconds to persistent storage.
    */
-  async function checkForReelNavigation() {
-    const currentUrl = window.location.href;
-    const platform = detectPlatform();
-
-    if (!platform) return;
-
-    // Fast-path: If the URL hasn't changed at all, skip regex processing
-    if (currentUrl === lastCheckedUrl) return;
-    lastCheckedUrl = currentUrl;
-
-    const candidateId = extractReelId(currentUrl, platform);
-
-    // If we're not currently on a Reel/Short page (e.g. user went to home feed)
-    if (!candidateId) {
-      lastActiveId = null;
-      return;
-    }
-
-    // In-memory deduplication:
-    // If the user is still on the same reel, do nothing
-    if (candidateId === lastActiveId) {
-      return;
-    }
-
-    // Update current in-memory active ID
-    lastActiveId = candidateId;
-
-    // Send to our storage manager for persistent daily counting and deduplication
-    if (window.ReelStorage && window.ReelStorage.recordReel) {
-      await window.ReelStorage.recordReel(candidateId, platform);
+  async function flushTimeSpent() {
+    if (unsavedSeconds > 0 && window.ReelStorage && window.ReelStorage.addTimeSpent) {
+      const toSave = unsavedSeconds;
+      unsavedSeconds = 0;
+      await window.ReelStorage.addTimeSpent(toSave);
     }
   }
 
-  // --- Observation Mechanism ---
-  // SPAs change URLs without a full page reload. We combine two lightweight strategies:
+  /**
+   * Counts a reel play or replay.
+   */
+  async function triggerPlayCount(reelId) {
+    if (!reelId || !window.ReelStorage) return;
+    await window.ReelStorage.recordReelPlay(reelId, currentPlatform);
+  }
 
-  // Strategy 1: URL Poller
-  // Checking window.location.href every 400ms is computationally trivial (~0.001ms)
-  // and catches any navigation that doesn't trigger DOM mutations.
+  /**
+   * Finds the currently playing or most prominent <video> element on the page.
+   */
+  function findActiveVideoElement() {
+    const videos = Array.from(document.querySelectorAll('video'));
+    if (videos.length === 0) return null;
+
+    // Prefer video that is currently not paused
+    const playing = videos.find(v => !v.paused && v.readyState > 1);
+    if (playing) return playing;
+
+    // Fallback: pick the largest video visible in the viewport
+    const sorted = videos.sort((a, b) => {
+      const rectA = a.getBoundingClientRect();
+      const rectB = b.getBoundingClientRect();
+      return (rectB.width * rectB.height) - (rectA.width * rectA.height);
+    });
+
+    return sorted[0] || null;
+  }
+
+  /**
+   * Attaches loop detection listeners to the active video element.
+   */
+  function attachVideoListeners(video) {
+    if (!video || video === activeVideoEl) return;
+    activeVideoEl = video;
+    lastVideoTime = video.currentTime;
+
+    // When video ends (some browsers/players emit 'ended' on loop)
+    video.addEventListener('ended', () => {
+      if (activeReelId) {
+        console.log('[Reel Counter] Video ended/looped:', activeReelId);
+        triggerPlayCount(activeReelId);
+      }
+    });
+
+    // Detect loops when playback wraps around from near the end back to start
+    video.addEventListener('timeupdate', () => {
+      const current = video.currentTime;
+      const duration = video.duration;
+
+      // If duration is known and video jumped from >80% back to near start (<1.5s)
+      if (duration && duration > 2 && lastVideoTime > (duration * 0.8) && current < 1.5) {
+        console.log('[Reel Counter] Loop detected via timeupdate:', activeReelId);
+        triggerPlayCount(activeReelId);
+      }
+      lastVideoTime = current;
+    });
+  }
+
+  /**
+   * Checks for URL navigation (scrolling to next or previous reel).
+   */
+  async function checkForReelNavigation() {
+    const candidateId = extractReelId(window.location.href);
+
+    if (!candidateId) {
+      // User navigated away from reels (e.g. back to home feed)
+      if (activeReelId) {
+        await flushTimeSpent();
+        activeReelId = null;
+        activeVideoEl = null;
+      }
+      return;
+    }
+
+    // If navigated to a new reel or returned back to a previously seen reel
+    if (candidateId !== activeReelId) {
+      await flushTimeSpent();
+      activeReelId = candidateId;
+      lastVideoTime = 0;
+
+      // Count this play
+      await triggerPlayCount(activeReelId);
+    }
+
+    // Attach listeners to active video
+    const video = findActiveVideoElement();
+    if (video) {
+      attachVideoListeners(video);
+    }
+  }
+
+  // --- Real-time Time Wasted Tracking ---
+  // Every 1 second, if the tab is visible and a reel is active, accumulate watch time
+  setInterval(() => {
+    if (!activeReelId) return;
+    if (document.hidden) return; // Tab is in background
+
+    const video = activeVideoEl || findActiveVideoElement();
+    // Only count time if video is playing (not paused)
+    if (video && !video.paused) {
+      unsavedSeconds += 1;
+    }
+
+    // Flush every 5 seconds to storage
+    if (unsavedSeconds >= 5) {
+      flushTimeSpent();
+    }
+  }, 1000);
+
+  // Flush when tab is hidden or page is closed
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      flushTimeSpent();
+    }
+  });
+  window.addEventListener('beforeunload', () => {
+    flushTimeSpent();
+  });
+
+  // --- Observation Mechanisms ---
   setInterval(checkForReelNavigation, 400);
 
-  // Strategy 2: MutationObserver
-  // Reacts immediately whenever DOM elements change (e.g. user scrolls down).
   const observer = new MutationObserver(() => {
     checkForReelNavigation();
   });
 
-  // Start observing document body when available
   if (document.body) {
     observer.observe(document.body, { childList: true, subtree: true });
   } else {
@@ -130,6 +203,5 @@
     });
   }
 
-  // Initial check on load
   checkForReelNavigation();
 })();

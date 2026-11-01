@@ -2,56 +2,54 @@
  * src/popup/popup.js
  * Controller for the extension popup UI.
  * 
- * C++ Analogy:
- * Think of this as the UI Controller or Presenter (in MVC/MVP).
- * It listens for user clicks (toggle, reset), queries the Model (ReelStorage),
- * and updates the DOM view elements.
+ * Displays the ultra-compact "Count: X" bar by default,
+ * and reveals time wasted and 7-day history when clicked.
  */
 
 document.addEventListener('DOMContentLoaded', async () => {
   const todayCountEl = document.getElementById('today-count');
+  const todayTimeEl = document.getElementById('today-time');
   const detailsPanel = document.getElementById('details-panel');
   const compactBar = document.getElementById('compact-bar');
   const toggleBtn = document.getElementById('toggle-btn');
   const historyListEl = document.getElementById('history-list');
-  const weekTotalEl = document.getElementById('week-total');
-  const resetBtn = document.getElementById('reset-btn');
+  const weekTotalReelsEl = document.getElementById('week-total-reels');
+  const weekTotalTimeEl = document.getElementById('week-total-time');
 
   /**
-   * Helper: Formats a "YYYY-MM-DD" string into a friendly label like "Today", "Yesterday", or "Fri, Oct 31".
-   * 
-   * @param {string} dateKey 
-   * @param {number} dayIndex (0 = Today, 1 = Yesterday)
-   * @returns {string}
+   * Formats a "YYYY-MM-DD" string into a friendly label like "Today", "Yesterday", or "Fri".
    */
   function formatDateLabel(dateKey, dayIndex) {
     if (dayIndex === 0) return 'Today';
     if (dayIndex === 1) return 'Yesterday';
 
-    // Parse date: e.g. "2026-11-01" -> Date object
     const [year, month, day] = dateKey.split('-').map(Number);
     const d = new Date(year, month - 1, day);
-    // Returns short weekday, e.g. "Thu" or "Wed"
     return d.toLocaleDateString(undefined, { weekday: 'short' });
   }
 
   /**
-   * Loads statistics from storage and updates the DOM.
+   * Loads statistics from storage and updates the DOM elements.
    */
   async function renderStats() {
     if (!window.ReelStorage) return;
 
     const stats = await window.ReelStorage.getStats();
 
-    // 1. Update the compact primary count
+    // 1. Primary Compact Display
     todayCountEl.textContent = stats.todayCount;
 
-    // 2. Render 7-day history list
+    // 2. Today's Time Wasted
+    todayTimeEl.textContent = window.ReelStorage.formatDuration(stats.todayTimeSpentSeconds);
+
+    // 3. Render 7-Day History
     historyListEl.innerHTML = '';
-    let weekTotal = 0;
+    let weekTotalCount = 0;
+    let weekTotalSeconds = 0;
 
     stats.past7Days.forEach((entry, index) => {
-      weekTotal += entry.count;
+      weekTotalCount += entry.count;
+      weekTotalSeconds += entry.timeSpentSeconds;
 
       const row = document.createElement('div');
       row.className = `history-row ${index === 0 ? 'today' : ''}`;
@@ -60,22 +58,31 @@ document.addEventListener('DOMContentLoaded', async () => {
       dateSpan.className = 'history-date';
       dateSpan.textContent = formatDateLabel(entry.date, index);
 
+      const statsContainer = document.createElement('div');
+      statsContainer.className = 'history-stats';
+
       const countSpan = document.createElement('span');
       countSpan.className = 'history-count';
-      countSpan.textContent = entry.count;
+      countSpan.textContent = `${entry.count} reels`;
+
+      const timeSpan = document.createElement('span');
+      timeSpan.className = 'history-time';
+      timeSpan.textContent = window.ReelStorage.formatDuration(entry.timeSpentSeconds);
+
+      statsContainer.appendChild(countSpan);
+      statsContainer.appendChild(timeSpan);
 
       row.appendChild(dateSpan);
-      row.appendChild(countSpan);
+      row.appendChild(statsContainer);
       historyListEl.appendChild(row);
     });
 
-    // 3. Update week total
-    weekTotalEl.textContent = weekTotal;
+    // 4. Update 7-Day Summary
+    weekTotalReelsEl.textContent = weekTotalCount;
+    weekTotalTimeEl.textContent = window.ReelStorage.formatDuration(weekTotalSeconds);
   }
 
-  // --- Event Listeners ---
-
-  // Toggle expand/collapse of the details panel
+  // Toggle between ultra-compact and full information view
   function toggleDetails(event) {
     event.stopPropagation();
     const isHidden = detailsPanel.classList.toggle('hidden');
@@ -84,16 +91,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   compactBar.addEventListener('click', toggleDetails);
   toggleBtn.addEventListener('click', toggleDetails);
-
-  // Reset button listener
-  resetBtn.addEventListener('click', async (event) => {
-    event.stopPropagation();
-    const confirmReset = window.confirm("Reset today's count to 0?");
-    if (confirmReset) {
-      await window.ReelStorage.resetToday();
-      await renderStats();
-    }
-  });
 
   // Initial render when popup opens
   await renderStats();

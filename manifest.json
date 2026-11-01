@@ -1,0 +1,40 @@
+{
+  "manifest_version": 3,
+  "name": "Reel Counter",
+  "version": "1.0.0",
+  "description": "Cross-browser counter for Instagram Reels, Facebook Reels, and YouTube Shorts with daily reset and 7-day history.",
+  "permissions": [
+    "storage"
+  ],
+  "action": {
+    "default_popup": "src/popup/popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    },
+    "default_title": "Reel Counter"
+  },
+  "background": {
+    "service_worker": "src/background/background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://*.instagram.com/*",
+        "https://*.facebook.com/*",
+        "https://*.youtube.com/*"
+      ],
+      "js": [
+        "src/utils/storage.js",
+        "src/content/content.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}

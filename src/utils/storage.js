@@ -1,33 +1,38 @@
 /**
  * src/utils/storage.js
- * Centralized data management, time tracking, and 7-day retention engine.
+ * Centralized data management and 7-day retention engine for Reel Counter.
  * 
  * C++ Analogy:
- * Think of this as the Data Storage / Repository Layer.
- * It manages persistence, daily midnight rollover, and rolling data structures.
+ * Think of this file like a Data Access Object (DAO) or repository class in C++.
+ * Instead of writing raw SQL or managing files directly, callers invoke methods
+ * like `ReelStorage.recordReel(id)` or `ReelStorage.getStats()`.
  */
 
+// Define on window (global scope in browser JS) so other scripts can access it.
 window.ReelStorage = (() => {
 
   /**
-   * Formats the current local date as "YYYY-MM-DD".
-   * Automatically resets daily at 12:00 AM midnight.
+   * Helper: Formats the current local date as "YYYY-MM-DD".
+   * 
+   * C++ Equivalent:
+   * strftime(buf, sizeof(buf), "%Y-%m-%d", localtime(&now))
    * 
    * @returns {string} e.g. "2026-11-01"
    */
   function getTodayKey() {
     const now = new Date();
     const year = now.getFullYear();
+    // getMonth() is zero-indexed (0 = January, 10 = November)
     const month = String(now.getMonth() + 1).padStart(2, '0');
     const day = String(now.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
   }
 
   /**
-   * Helper: Calculates a date key N days offset from a given date.
+   * Helper: Calculates a date key N days before/after a given reference date.
    * 
-   * @param {Date} date 
-   * @param {number} daysOffset 
+   * @param {Date} date - The starting date
+   * @param {number} daysOffset - Days to add or subtract
    * @returns {string} "YYYY-MM-DD"
    */
   function getDateKeyOffset(date, daysOffset) {
@@ -40,154 +45,142 @@ window.ReelStorage = (() => {
   }
 
   /**
-   * Formats raw seconds into human-readable time (e.g. "45s", "12m", "1h 24m").
+   * Enforces the 7-day rolling retention policy.
+   * Deletes any records older than 7 days ago.
    * 
-   * @param {number} totalSeconds 
-   * @returns {string}
-   */
-  function formatDuration(totalSeconds) {
-    const sec = Math.max(0, Math.floor(totalSeconds || 0));
-    const hours = Math.floor(sec / 3600);
-    const minutes = Math.floor((sec % 3600) / 60);
-    const remainingSec = sec % 60;
-
-    if (hours > 0) {
-      return `${hours}h ${minutes}m`;
-    }
-    if (minutes > 0) {
-      return `${minutes}m`;
-    }
-    return `${remainingSec}s`;
-  }
-
-  /**
-   * Enforces 7-day rolling retention.
-   * Prunes any stored records older than 7 days.
+   * C++ Analogy:
+   * std::erase_if(history, [cutoff](const auto& item) { return item.first < cutoff; });
    * 
-   * @param {Object} history 
-   * @returns {Object} Pruned history
+   * @param {Object} history - The history object from storage
+   * @returns {Object} Pruned history object
    */
   function pruneOldHistory(history) {
     const today = new Date();
+    // 7 days ago cutoff date string
     const cutoffKey = getDateKeyOffset(today, -7);
 
-    for (const dateKey of Object.keys(history)) {
+    // In JS, Object.keys(obj) returns an array (vector) of all keys in the object
+    const dateKeys = Object.keys(history);
+
+    for (const dateKey of dateKeys) {
+      // String comparison works for "YYYY-MM-DD" formatted dates
       if (dateKey < cutoffKey) {
-        delete history[dateKey];
+        delete history[dateKey]; // Remove stale entry
       }
     }
     return history;
   }
 
   /**
-   * Records a Reel/Short play.
-   * If a reel is replayed or looped, it is counted as requested.
+   * Records a viewed Reel ID.
+   * Checks for duplicate views today. If unique, increments the counter.
    * 
-   * @param {string} reelId 
-   * @param {string} platform 
-   * @returns {Promise<{todayCount: number}>}
+   * C++ Analogy:
+   * bool record_reel(const std::string& id)
+   * 
+   * @param {string} reelId - Unique alphanumeric identifier of the video
+   * @param {string} platform - "instagram", "youtube", or "facebook"
+   * @returns {Promise<{isNew: boolean, todayCount: number}>}
    */
-  async function recordReelPlay(reelId, platform = 'instagram') {
+  async function recordReel(reelId, platform = 'instagram') {
+    if (!reelId || typeof reelId !== 'string') {
+      return { isNew: false, todayCount: 0 };
+    }
+
     const todayKey = getTodayKey();
+
+    // chrome.storage.local.get retrieves values by key asynchronously.
+    // In C++, this is like reading an async future: `auto data = read_db_async().get();`
     const data = await chrome.storage.local.get(['history', 'totalCount']);
 
+    // If 'history' does not exist yet in storage, initialize an empty object {}
     const history = data.history || {};
     let totalCount = data.totalCount || 0;
 
+    // Ensure today's record exists
     if (!history[todayKey]) {
       history[todayKey] = {
         count: 0,
-        timeSpentSeconds: 0
+        ids: [] // Array of unique IDs seen today
       };
     }
 
     const todayRecord = history[todayKey];
+
+    // Check if reelId was already viewed today (Deduplication)
+    // C++ Equivalent: std::find(ids.begin(), ids.end(), reelId) != ids.end()
+    if (todayRecord.ids.includes(reelId)) {
+      return { isNew: false, todayCount: todayRecord.count };
+    }
+
+    // It's a new unique reel!
+    todayRecord.ids.push(reelId);
     todayRecord.count += 1;
     totalCount += 1;
 
+    // Apply the 7-day retention policy to keep storage minimal
     const cleanedHistory = pruneOldHistory(history);
 
+    // Save back to persistent storage
     await chrome.storage.local.set({
       history: cleanedHistory,
       totalCount: totalCount
     });
 
-    console.log(`[Reel Counter] Reel played (${platform}): ${reelId}. Today's total plays: ${todayRecord.count}`);
+    console.log(`[Reel Counter] New unique Reel counted (${platform}):`, reelId, `Today count: ${todayRecord.count}`);
 
-    return { todayCount: todayRecord.count };
+    return { isNew: true, todayCount: todayRecord.count };
   }
 
   /**
-   * Accumulates time spent watching reels today.
+   * Retrieves dashboard statistics for the popup.
    * 
-   * @param {number} additionalSeconds - Number of seconds to add
-   */
-  async function addTimeSpent(additionalSeconds) {
-    if (!additionalSeconds || additionalSeconds <= 0) return;
-
-    const todayKey = getTodayKey();
-    const data = await chrome.storage.local.get(['history', 'totalTimeSpentSeconds']);
-
-    const history = data.history || {};
-    let totalTimeSpentSeconds = (data.totalTimeSpentSeconds || 0) + additionalSeconds;
-
-    if (!history[todayKey]) {
-      history[todayKey] = {
-        count: 0,
-        timeSpentSeconds: 0
-      };
-    }
-
-    history[todayKey].timeSpentSeconds = (history[todayKey].timeSpentSeconds || 0) + additionalSeconds;
-
-    const cleanedHistory = pruneOldHistory(history);
-
-    await chrome.storage.local.set({
-      history: cleanedHistory,
-      totalTimeSpentSeconds
-    });
-  }
-
-  /**
-   * Retrieves dashboard statistics for today and the past 7 days.
+   * @returns {Promise<{todayCount: number, past7Days: Array<{date: string, count: number}>, totalCount: number}>}
    */
   async function getStats() {
     const todayKey = getTodayKey();
-    const data = await chrome.storage.local.get(['history', 'totalCount', 'totalTimeSpentSeconds']);
-
+    const data = await chrome.storage.local.get(['history', 'totalCount']);
     const history = data.history || {};
     const totalCount = data.totalCount || 0;
-    const totalTimeSpentSeconds = data.totalTimeSpentSeconds || 0;
 
-    const todayRecord = history[todayKey] || { count: 0, timeSpentSeconds: 0 };
+    const todayCount = history[todayKey] ? history[todayKey].count : 0;
 
+    // Build ordered list of the last 7 calendar days
     const past7Days = [];
     const now = new Date();
 
     for (let i = 0; i < 7; i++) {
       const dateKey = getDateKeyOffset(now, -i);
-      const rec = history[dateKey] || { count: 0, timeSpentSeconds: 0 };
-      past7Days.push({
-        date: dateKey,
-        count: rec.count || 0,
-        timeSpentSeconds: rec.timeSpentSeconds || 0
-      });
+      const count = history[dateKey] ? history[dateKey].count : 0;
+      past7Days.push({ date: dateKey, count: count });
     }
 
     return {
-      todayCount: todayRecord.count || 0,
-      todayTimeSpentSeconds: todayRecord.timeSpentSeconds || 0,
+      todayCount,
       past7Days,
-      totalCount,
-      totalTimeSpentSeconds
+      totalCount
     };
   }
 
+  /**
+   * Resets today's counter to 0 (useful for testing or user reset).
+   */
+  async function resetToday() {
+    const todayKey = getTodayKey();
+    const data = await chrome.storage.local.get(['history']);
+    const history = data.history || {};
+
+    if (history[todayKey]) {
+      history[todayKey] = { count: 0, ids: [] };
+      await chrome.storage.local.set({ history });
+    }
+  }
+
+  // Public API exposed by the module
   return {
     getTodayKey,
-    formatDuration,
-    recordReelPlay,
-    addTimeSpent,
-    getStats
+    recordReel,
+    getStats,
+    resetToday
   };
 })();

@@ -1,13 +1,12 @@
-/* src/popup/popup.css - Ultra-compact with expandable full statistics */
+/* src/popup/popup.css - Ultra-compact, modern design */
 :root {
   --bg-color: #121217;
-  --panel-bg: #1c1c26;
-  --card-bg: #232330;
+  --panel-bg: #1a1a24;
   --text-main: #f0f0f5;
-  --text-muted: #8e8ea0;
+  --text-muted: #8b8b9e;
   --accent-pink: #ff3366;
-  --accent-amber: #ff9f1c;
-  --border-color: #2b2b3b;
+  --accent-green: #00d26a;
+  --border-color: #2c2c3a;
 }
 
 * {
@@ -22,13 +21,14 @@ body {
   color: var(--text-main);
   margin: 0;
   padding: 0;
-  min-width: 120px;
-  max-width: 250px;
+  width: auto;
+  min-width: 130px;
+  max-width: 230px;
   user-select: none;
 }
 
 .popup-wrapper {
-  padding: 7px 10px;
+  padding: 8px 10px;
 }
 
 /* Compact single-row bar */
@@ -36,14 +36,14 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: 8px;
   cursor: pointer;
 }
 
 .count-display {
   display: flex;
   align-items: baseline;
-  gap: 5px;
+  gap: 4px;
 }
 
 .count-label {
@@ -64,12 +64,12 @@ body {
   border: none;
   color: var(--text-muted);
   cursor: pointer;
-  padding: 3px;
+  padding: 2px;
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: 4px;
-  transition: color 0.15s, transform 0.2s;
+  transition: color 0.2s, transform 0.2s;
 }
 
 .toggle-btn:hover {
@@ -81,7 +81,7 @@ body {
   transform: rotate(180deg);
 }
 
-/* Full info details panel */
+/* Detailed expanded section */
 .details-panel {
   margin-top: 6px;
   animation: fadeIn 0.18s ease-in-out;
@@ -94,30 +94,7 @@ body {
 .divider {
   height: 1px;
   background-color: var(--border-color);
-  margin: 7px 0;
-}
-
-/* Time Wasted Card */
-.time-card {
-  background-color: var(--panel-bg);
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  padding: 6px 8px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 7px;
-}
-
-.time-label {
-  font-size: 11px;
-  color: var(--text-muted);
-}
-
-.time-value {
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--accent-amber);
+  margin: 6px 0;
 }
 
 .section-title {
@@ -133,84 +110,59 @@ body {
   flex-direction: column;
   gap: 3px;
   margin-bottom: 6px;
-  max-height: 140px;
+  max-height: 120px;
   overflow-y: auto;
 }
 
 .history-row {
   display: flex;
   justify-content: space-between;
-  align-items: center;
   font-size: 11px;
-  padding: 3px 5px;
-  border-radius: 4px;
+  padding: 2px 4px;
+  border-radius: 3px;
 }
 
 .history-row.today {
   background-color: rgba(255, 51, 102, 0.12);
+  color: var(--text-main);
   font-weight: 600;
 }
 
 .history-date {
   color: var(--text-muted);
-  width: 60px;
 }
 
 .history-row.today .history-date {
   color: var(--accent-pink);
 }
 
-.history-stats {
-  display: flex;
-  gap: 10px;
-}
-
 .history-count {
   font-weight: 600;
-  color: var(--text-main);
-  min-width: 25px;
-  text-align: right;
 }
 
-.history-time {
-  color: var(--accent-amber);
-  font-size: 10px;
-  min-width: 40px;
-  text-align: right;
-}
-
-.summary-card {
-  background-color: var(--panel-bg);
-  border-radius: 6px;
-  padding: 5px 8px;
+.footer-actions {
   display: flex;
-  flex-direction: column;
-  gap: 3px;
-  font-size: 11px;
-}
-
-.summary-row {
-  display: flex;
-  justify-content: space-between;
-  color: var(--text-muted);
-}
-
-.bold-value {
-  color: var(--text-main);
-  font-weight: 700;
-}
-
-.footer-info {
-  display: flex;
-  justify-content: center;
+  justify-content: flex-start;
+  align-items: center;
   padding-top: 2px;
 }
 
-.auto-reset-tag {
+.status-indicator {
+  display: flex;
+  align-items: center;
+  gap: 4px;
   font-size: 10px;
   color: var(--text-muted);
-  letter-spacing: 0.2px;
 }
+
+.status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: var(--accent-green);
+  box-shadow: 0 0 5px var(--accent-green);
+}
+
 
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(-3px); }

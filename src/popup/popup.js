@@ -2,55 +2,52 @@
  * src/popup/popup.js
  * Controller for the extension popup UI.
  * 
- * Displays the ultra-compact "Count: X" bar by default,
- * and reveals time wasted and 7-day history when clicked.
+ * C++ Analogy:
+ * Think of this as the UI Controller or Presenter (in MVC/MVP).
+ * It listens for user clicks (toggle, reset), queries the Model (ReelStorage),
+ * and updates the DOM view elements.
  */
 
 document.addEventListener('DOMContentLoaded', async () => {
   const todayCountEl = document.getElementById('today-count');
-  const todayTimeEl = document.getElementById('today-time');
   const detailsPanel = document.getElementById('details-panel');
   const compactBar = document.getElementById('compact-bar');
   const toggleBtn = document.getElementById('toggle-btn');
   const historyListEl = document.getElementById('history-list');
-  const weekTotalReelsEl = document.getElementById('week-total-reels');
-  const weekTotalTimeEl = document.getElementById('week-total-time');
 
   /**
-   * Formats a "YYYY-MM-DD" string into a friendly label like "Today", "Yesterday", or "Fri".
+   * Helper: Formats a "YYYY-MM-DD" string into a friendly label like "Today", "Yesterday", or "Fri, Oct 31".
+   * 
+   * @param {string} dateKey 
+   * @param {number} dayIndex (0 = Today, 1 = Yesterday)
+   * @returns {string}
    */
   function formatDateLabel(dateKey, dayIndex) {
     if (dayIndex === 0) return 'Today';
     if (dayIndex === 1) return 'Yesterday';
 
+    // Parse date: e.g. "2026-11-01" -> Date object
     const [year, month, day] = dateKey.split('-').map(Number);
     const d = new Date(year, month - 1, day);
+    // Returns short weekday, e.g. "Thu" or "Wed"
     return d.toLocaleDateString(undefined, { weekday: 'short' });
   }
 
   /**
-   * Loads statistics from storage and updates the DOM elements.
+   * Loads statistics from storage and updates the DOM.
    */
   async function renderStats() {
     if (!window.ReelStorage) return;
 
     const stats = await window.ReelStorage.getStats();
 
-    // 1. Primary Compact Display
+    // 1. Update the compact primary count
     todayCountEl.textContent = stats.todayCount;
 
-    // 2. Today's Time Wasted
-    todayTimeEl.textContent = window.ReelStorage.formatDuration(stats.todayTimeSpentSeconds);
-
-    // 3. Render 7-Day History
+    // 2. Render 7-day history list
     historyListEl.innerHTML = '';
-    let weekTotalCount = 0;
-    let weekTotalSeconds = 0;
 
     stats.past7Days.forEach((entry, index) => {
-      weekTotalCount += entry.count;
-      weekTotalSeconds += entry.timeSpentSeconds;
-
       const row = document.createElement('div');
       row.className = `history-row ${index === 0 ? 'today' : ''}`;
 
@@ -58,31 +55,19 @@ document.addEventListener('DOMContentLoaded', async () => {
       dateSpan.className = 'history-date';
       dateSpan.textContent = formatDateLabel(entry.date, index);
 
-      const statsContainer = document.createElement('div');
-      statsContainer.className = 'history-stats';
-
       const countSpan = document.createElement('span');
       countSpan.className = 'history-count';
-      countSpan.textContent = `${entry.count} reels`;
-
-      const timeSpan = document.createElement('span');
-      timeSpan.className = 'history-time';
-      timeSpan.textContent = window.ReelStorage.formatDuration(entry.timeSpentSeconds);
-
-      statsContainer.appendChild(countSpan);
-      statsContainer.appendChild(timeSpan);
+      countSpan.textContent = entry.count;
 
       row.appendChild(dateSpan);
-      row.appendChild(statsContainer);
+      row.appendChild(countSpan);
       historyListEl.appendChild(row);
     });
-
-    // 4. Update 7-Day Summary
-    weekTotalReelsEl.textContent = weekTotalCount;
-    weekTotalTimeEl.textContent = window.ReelStorage.formatDuration(weekTotalSeconds);
   }
 
-  // Toggle between ultra-compact and full information view
+  // --- Event Listeners ---
+
+  // Toggle expand/collapse of the details panel
   function toggleDetails(event) {
     event.stopPropagation();
     const isHidden = detailsPanel.classList.toggle('hidden');

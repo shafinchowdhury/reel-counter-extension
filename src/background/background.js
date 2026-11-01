@@ -28,7 +28,7 @@ function updateBadge(count) {
 }
 
 /**
- * Reads storage and refreshes the badge.
+ * Reads storage and refreshes the badge based on current local date.
  */
 async function refreshBadgeFromStorage() {
   const todayKey = getTodayKey();
@@ -38,7 +38,7 @@ async function refreshBadgeFromStorage() {
   updateBadge(todayCount);
 }
 
-// 1. When extension is installed or browser starts up
+// 1. Lifecycle: extension installed or browser started
 chrome.runtime.onInstalled.addListener(() => {
   console.log('[Reel Counter] Extension installed/updated.');
   refreshBadgeFromStorage();
@@ -58,4 +58,11 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
     const todayCount = newHistory[todayKey] ? newHistory[todayKey].count : 0;
     updateBadge(todayCount);
   }
+});
+
+// 3. Midnight rollover check:
+// When the user switches tabs or focuses the window, refresh the badge.
+// If the clock passed midnight, the badge will automatically clear back to 0.
+chrome.tabs.onActivated.addListener(() => {
+  refreshBadgeFromStorage();
 });

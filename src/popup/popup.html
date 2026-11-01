@@ -7,12 +7,45 @@
   <link rel="stylesheet" href="popup.css">
 </head>
 <body>
-  <div class="container">
-    <div class="minimal-view">
-      <span class="label">Count:</span>
-      <span id="today-count" class="count-value">0</span>
+  <div class="popup-wrapper">
+    <!-- Compact View (Always Visible) -->
+    <div class="compact-bar" id="compact-bar" title="Click to toggle 7-day details">
+      <div class="count-display">
+        <span class="count-label">Count:</span>
+        <span id="today-count" class="count-number">0</span>
+      </div>
+      <button class="toggle-btn" id="toggle-btn" aria-label="Toggle details">
+        <svg id="chevron-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="6 9 12 15 18 9"></polyline>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Expandable Detailed View (Revealed when clicked) -->
+    <div class="details-panel hidden" id="details-panel">
+      <div class="divider"></div>
+      
+      <div class="section-title">Past 7 Days</div>
+      <div class="history-list" id="history-list">
+        <!-- Rendered dynamically by popup.js -->
+      </div>
+
+      <div class="summary-row">
+        <span>7-Day Total:</span>
+        <span id="week-total" class="bold-value">0</span>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="footer-actions">
+        <span class="status-indicator">
+          <span class="status-dot"></span> Tracking Active
+        </span>
+        <button id="reset-btn" class="reset-btn" title="Reset today's count">Reset</button>
+      </div>
     </div>
   </div>
+
   <script src="../utils/storage.js"></script>
   <script src="popup.js"></script>
 </body>

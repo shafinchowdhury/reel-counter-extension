@@ -42,3 +42,4 @@ A privacy-first, lightweight browser extension for **Google Chrome** and **Brave
 2. Enable **Developer mode** (toggle in the top-right corner).
 3. Click **Load unpacked**.
 4. Select this project root folder.
+
